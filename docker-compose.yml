@@ -1,0 +1,67 @@
+version: "3"
+
+networks:
+  default:
+
+volumes:
+  phpmyadmin_data:
+
+services:
+  php-fpm:
+    build:
+      context: .docker/php
+      dockerfile: Dockerfile
+      args:
+        SOURCE_TAG: ${DOCKER_PHP_VERSION}-fpm-alpine
+    image: php-fpm:${DOCKER_PHP_VERSION}-alpine-composer${DOCKER_PHP_IMAGE_POSTFIX}
+    container_name: php-fpm
+    working_dir: $PWD
+    volumes:
+      - .conf/php.ini:/usr/local/etc/php/php.ini:ro
+      - .conf/php-xdebug.ini:/usr/local/etc/php/conf.d/xdebug-setup.ini:ro
+      - .:$PWD
+    restart: ${DOCKER_RESTART_MODE}
+
+  nginx:
+    image: nginx:${DOCKER_NGINX_TAG}
+    container_name: nginx
+    working_dir: $PWD
+    environment:
+      - NGINX_WEBROOT=$PWD/${DOCKER_NGINX_WEBROOT_DIR}
+      - NGINX_PHPMYADMIN_URI=${DOCKER_PHPMYADMIN_URI}
+    volumes:
+      - .conf/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - .conf/nginx/ssl:/etc/nginx/ssl:ro
+      - phpmyadmin_data:/var/www/html
+      - .:$PWD
+    ports:
+      - ${DOCKER_NGINX_PORT_HTTP}:80
+      - ${DOCKER_NGINX_PORT_HTTPS}:443
+    restart: ${DOCKER_RESTART_MODE}
+    depends_on:
+      - phpmyadmin
+      - php-fpm
+
+  mariadb:
+    image: mariadb:${DOCKER_MARIADB_TAG}
+    container_name: mariadb
+    environment:
+      - MYSQL_ROOT_PASSWORD=${DOCKER_MYSQL_ROOT_PASSWORD}
+    volumes:
+      - .conf/my.cnf:/etc/mysql/my.cnf:ro
+      - ${DOCKER_MARIADB_DATA_DIR}:/var/lib/mysql
+    ports:
+      - ${DOCKER_MARIADB_PORT}:3306
+    user: "${DOCKER_MARIADB_UID_GID}"
+    restart: ${DOCKER_RESTART_MODE}
+
+  phpmyadmin:
+    image: phpmyadmin:fpm-alpine
+    container_name: phpmyadmin
+    environment:
+      - PMA_HOST=mariadb
+      - PMA_USER=root
+      - PMA_PASSWORD=${DOCKER_MYSQL_ROOT_PASSWORD}
+    volumes:
+      - phpmyadmin_data:/var/www/html
+    restart: ${DOCKER_RESTART_MODE}

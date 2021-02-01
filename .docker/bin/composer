@@ -1,0 +1,5 @@
+#!/bin/sh
+
+docker exec -it --user $(id -u):$(id -g) --workdir $PWD php-fpm php -n /usr/local/bin/composer "$@"
+
+exit $?

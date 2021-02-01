@@ -1,0 +1,5 @@
+#!/bin/sh
+
+docker exec -i --user $(id -u):$(id -g) --workdir $PWD php-fpm php "$@"
+
+exit $?
